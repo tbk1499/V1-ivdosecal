@@ -294,51 +294,11 @@ footer{text-align:center;padding:8px 20px 20px;color:var(--muted);font-size:10px
 
 </header>
 
-<div class="cloud-bar">
-  
-  <button id="loginBtn" class="cloud-btn">🔐 เข้าสู่ระบบ</button>
-</div>
-
-<div id="loginPanel" class="modal hidden">
-  <div class="modal-card">
-    <button class="modal-close" onclick="closeLogin()">×</button>
-    <div class="modal-icon">🔐</div>
-    <h2>เข้าสู่ระบบเจ้าหน้าที่</h2>
-    <p class="small">ใช้บัญชีที่สมัครไว้ในระบบ (ข้อมูลเก็บใน Google Sheet)</p>
-    <label>อีเมล</label>
-    <input id="loginEmail" type="email" autocomplete="username" placeholder="staff@example.com">
-    <label>รหัสผ่าน</label>
-    <input id="loginPassword" type="password" autocomplete="current-password" placeholder="รหัสผ่าน">
-    <button class="primary" onclick="login()">เข้าสู่ระบบ</button>
-    <button class="secondary full-btn" onclick="openSignup()">📝 สมัครสมาชิก / ขอสิทธิ์ใช้งาน</button>
-    <div id="loginMsg" class="login-msg"></div>
-  </div>
-</div>
-
-<div id="signupPanel" class="modal hidden">
-  <div class="modal-card">
-    <button class="modal-close" onclick="closeSignup()">×</button>
-    <div class="modal-icon">📝</div>
-    <h2>สมัครสมาชิก / ขอสิทธิ์ใช้งาน</h2>
-    <p class="small">สมัครได้ แต่ยังใช้งานระบบไม่ได้จนกว่า Admin จะอนุมัติ</p>
-    <label>ชื่อ-สกุล</label>
-    <input id="signupName" placeholder="ชื่อ-สกุล">
-    <label>หน่วยงาน / หอผู้ป่วย</label>
-    <input id="signupDepartment" placeholder="เช่น CVT2">
-    <label>อีเมล</label>
-    <input id="signupEmail" type="email" autocomplete="email" placeholder="staff@example.com">
-    <label>รหัสผ่าน</label>
-    <input id="signupPassword" type="password" autocomplete="new-password" placeholder="อย่างน้อย 6 ตัวอักษร">
-    <button class="primary" onclick="signup()">📤 ส่งคำขอสมัครสมาชิก</button>
-    <div id="signupMsg" class="login-msg"></div>
-  </div>
-</div>
-
 <main>
 <div class="card hero-card">
 <div class="action-row">
 
-<button class="print-btn" type="button" onclick="saveCalculation()">☁️ บันทึกประวัติ</button>
+<button class="print-btn" type="button" onclick="saveCalculation()">💾 บันทึกประวัติ</button>
 </div>
 <div style="display:flex;align-items:center;gap:10px">
   <div style="font-size:28px">🩺</div>
@@ -471,18 +431,6 @@ footer{text-align:center;padding:8px 20px 20px;color:var(--muted);font-size:10px
 </div>
 </div>
 <div class="database">ฐานข้อมูลที่เพิ่ม: Adrenaline, Levophed, Dopamine, Dobutamine, Primacor, NTG, Nicardipine, Esmolol, Labetalol, Fentanyl, Dormicum, Nimbex, 2%Lidocaine HCl</div>
-
-<div class="card admin-card" id="adminPanel" style="display:none">
-  <div class="section-head">
-    <div class="section-title" style="margin:0">🔐 Admin Approval Center</div>
-    <button class="secondary mini-btn" onclick="loadPendingRequests()">รีเฟรช</button>
-  </div>
-  <div class="small">สูตรที่รออนุมัติจะยังไม่ถูกใช้ในการคำนวณจนกว่า Admin จะกดอนุมัติ</div>
-  <div class="section-title" style="margin:12px 0 4px">👤 สมาชิกที่รออนุมัติ</div>
-  <div id="pendingUsers" class="history-list"></div>
-  <div class="section-title" style="margin:12px 0 4px">💊 สูตรยาที่รออนุมัติ</div>
-  <div id="pendingRequests" class="history-list" style="margin-top:10px"></div>
-</div>
 
 <div class="card history-card" id="historySection">
   <div class="section-head">
@@ -668,219 +616,10 @@ function renderSideEffects(){
 
 
 
-/* ===== Google Apps Script backend (Google Sheet) =====
-   สมัครสมาชิก / เข้าสู่ระบบ / อนุมัติสมาชิก / คำขอเพิ่มยา / ประวัติการคำนวณ
-   ทั้งหมดเก็บใน Google Sheet ผ่าน Web App ด้านล่าง
-*/
-const GAS_URL = "https://script.google.com/macros/s/AKfycbxqS_ixPZh5adQaYEp37mq4VrDj3hDfXGJOsAgLMxFXuCNeYBbuaJCDMjGAIQ3h4Kng/exec";
-const TOKEN_KEY = "cvt2_token";
-let currentUser = null;
-let historyRows = [];
-let pendingRequests = [];
+/* ===== ประวัติการคำนวณ: เก็บในเครื่อง (localStorage) ไม่ต้องเข้าสู่ระบบ ===== */
+const GAS_URL = "https://script.google.com/macros/s/AKfycbxSfki8HNy8qTFkyhE_hZVGRsTiaGYFkvO6klpvdv5MWAKmOd3wC4lJ30T9WTLHhJs/exec";
+let historyRows=[];
 
-function getToken(){ try{ return localStorage.getItem(TOKEN_KEY)||""; }catch(e){ return ""; } }
-function setToken(t){ try{ t ? localStorage.setItem(TOKEN_KEY,t) : localStorage.removeItem(TOKEN_KEY); }catch(e){} }
-
-// เรียก Apps Script (ใช้ text/plain เพื่อเลี่ยง CORS preflight)
-async function gas(action, payload){
-  try{
-    const res = await fetch(GAS_URL,{
-      method:"POST",
-      headers:{"Content-Type":"text/plain;charset=utf-8"},
-      body:JSON.stringify(Object.assign({action:action, token:getToken()}, payload||{}))
-    });
-    const r = await res.json();
-    if(r && r.code==="AUTH" && currentUser){ setToken(""); setLoggedOut(); }
-    return r;
-  }catch(e){
-    return {ok:false,error:"เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ กรุณาลองใหม่"};
-  }
-}
-
-/* ---------- สมัครสมาชิก ---------- */
-function openSignup(){
-  closeLogin();
-  $("signupPanel").classList.remove("hidden");
-  $("signupName").focus();
-}
-function closeSignup(){
-  $("signupPanel").classList.add("hidden");
-  $("signupMsg").textContent="";
-  $("signupMsg").className="login-msg";
-}
-async function signup(){
-  const msg=$("signupMsg");
-  msg.className="login-msg";
-  const full_name=$("signupName").value.trim();
-  const department=$("signupDepartment").value.trim();
-  const email=$("signupEmail").value.trim();
-  const password=$("signupPassword").value;
-  if(!full_name||!email||password.length<6){
-    msg.textContent="กรุณากรอกชื่อ อีเมล และรหัสผ่านอย่างน้อย 6 ตัวอักษร";
-    return;
-  }
-  msg.textContent="กำลังส่งคำขอสมัคร…";
-  const r=await gas("register",{full_name,department,email,password});
-  if(!r.ok){ msg.textContent=r.error||"สมัครไม่สำเร็จ"; return; }
-  msg.className="login-msg ok";
-  msg.textContent=r.status==="active"
-    ? "สมัครสำเร็จ สามารถเข้าสู่ระบบได้ทันที"
-    : "สมัครสำเร็จ กรุณารอ Admin อนุมัติก่อนใช้งาน";
-}
-
-/* ---------- เข้าสู่ระบบ ---------- */
-function openLogin(){ $("loginPanel").classList.remove("hidden"); $("loginEmail").focus(); }
-function closeLogin(){ $("loginPanel").classList.add("hidden"); $("loginMsg").textContent=""; }
-$("loginBtn").addEventListener("click",()=>currentUser?logout():openLogin());
-
-async function login(){
-  const email=$("loginEmail").value.trim(), password=$("loginPassword").value;
-  if(!email||!password){ $("loginMsg").textContent="กรุณากรอกอีเมลและรหัสผ่าน"; return; }
-  $("loginMsg").textContent="กำลังเข้าสู่ระบบ…";
-  const r=await gas("login",{email,password});
-  if(!r.ok){ $("loginMsg").textContent=r.error||"เข้าสู่ระบบไม่สำเร็จ"; return; }
-  setToken(r.token);
-  $("loginPassword").value="";
-  closeLogin();
-  setLoggedIn(r.user);
-}
-async function logout(){
-  await gas("logout");
-  setToken("");
-  setLoggedOut();
-}
-async function initCloud(){
-  loadApprovedDrugs();
-  if(!getToken()){ loadHistory(); return; }
-  const r=await gas("me");
-  if(r.ok) setLoggedIn(r.user); else { setToken(""); loadHistory(); }
-}
-function setLoggedIn(user){
-  currentUser=user;
-  $("loginBtn").textContent="ออกจากระบบ ("+(user.full_name||user.email||"")+")";
-  showAdminPanel(getCurrentRole()==="admin");
-  loadHistory();
-  loadPendingRequests();
-  loadPendingUsers();
-}
-function setLoggedOut(){
-  currentUser=null;
-  $("loginBtn").textContent="🔐 เข้าสู่ระบบ";
-  showAdminPanel(false);
-  loadHistory();
-}
-function showAdminPanel(isAdmin){
-  const panel=$("adminPanel");
-  if(panel) panel.style.display=isAdmin?"block":"none";
-}
-function getCurrentRole(){
-  // สิทธิ์ถูกตรวจซ้ำที่ฝั่ง Apps Script ทุกครั้ง (ค่านี้ใช้แสดงผล UI เท่านั้น)
-  return currentUser?.role || "staff";
-}
-
-/* ---------- Admin: อนุมัติสมาชิก ---------- */
-async function loadPendingUsers(){
-  if(!currentUser || getCurrentRole()!=="admin") return;
-  const box=$("pendingUsers"); if(!box) return;
-  const r=await gas("listPendingUsers");
-  if(!r.ok){ box.innerHTML='<div class="empty-history">โหลดสมาชิกที่รออนุมัติไม่สำเร็จ: '+escapeHtml(r.error||"")+'</div>'; return; }
-  box.innerHTML="";
-  if(!r.users?.length){ box.innerHTML='<div class="empty-history">ไม่มีสมาชิกที่รออนุมัติ</div>'; return; }
-  r.users.forEach(u=>{
-    const d=document.createElement("div"); d.className="pending-user-card";
-    d.innerHTML=`<div class="pending-user-name">${escapeHtml(u.full_name||u.email||"ไม่ระบุชื่อ")}</div>
-      <div class="pending-user-meta">Email: ${escapeHtml(u.email||"—")}<br>หน่วยงาน: ${escapeHtml(u.department||"—")}<br>สมัครเมื่อ: ${u.created_at?new Date(u.created_at).toLocaleString("th-TH"):"—"}</div>
-      <div class="pending-user-actions">
-        <select id="role_${escapeHtml(u.id)}" class="role-select">
-          <option value="staff">Staff</option>
-          <option value="admin">Admin</option>
-        </select>
-        <button class="approve-btn" onclick="approveUser('${escapeHtml(u.id)}')">✓ อนุมัติสมาชิก</button>
-        <button class="reject-btn" onclick="rejectUser('${escapeHtml(u.id)}')">✕ ไม่อนุมัติ</button>
-      </div>`;
-    box.appendChild(d);
-  });
-}
-async function approveUser(userId){
-  if(!currentUser || getCurrentRole()!=="admin") return;
-  const role=$("role_"+userId)?.value||"staff";
-  const r=await gas("approveUser",{user_id:userId,role});
-  if(!r.ok){ alert("อนุมัติสมาชิกไม่สำเร็จ: "+(r.error||"")); return; }
-  loadPendingUsers();
-  alert("อนุมัติสมาชิกเรียบร้อย");
-}
-async function rejectUser(userId){
-  if(!currentUser || getCurrentRole()!=="admin") return;
-  const r=await gas("rejectUser",{user_id:userId});
-  if(!r.ok){ alert("ไม่อนุมัติสมาชิกไม่สำเร็จ: "+(r.error||"")); return; }
-  loadPendingUsers();
-}
-
-/* ---------- Admin: คำขอเพิ่มยา ---------- */
-async function loadPendingRequests(){
-  if(!currentUser || getCurrentRole()!=="admin") return;
-  const box=$("pendingRequests"); if(!box) return;
-  const r=await gas("listDrugRequests");
-  if(!r.ok){ box.innerHTML='<div class="empty-history">โหลดคำขอไม่สำเร็จ</div>'; return; }
-  pendingRequests=r.requests||[];
-  box.innerHTML="";
-  if(!pendingRequests.length){ box.innerHTML='<div class="empty-history">ไม่มีสูตรที่รออนุมัติ</div>'; return; }
-  pendingRequests.forEach(q=>{
-    const d=document.createElement("div"); d.className="pending-card";
-    d.innerHTML=`<div class="pending-title">${escapeHtml(q.drug_name)}</div>
-    <div class="pending-meta">
-      ${q.drug_amount||"—"} ${escapeHtml(q.drug_unit||"")} / ${q.total_ml||"—"} mL • ${escapeHtml(q.dilution||"—")}<br>
-      Dose: ${q.dose_min??"—"}–${q.dose_max??"—"} ${escapeHtml(q.dose_unit||"—")}<br>
-      อ้างอิง: ${escapeHtml(q.source_reference||"ไม่ได้ระบุ")}<br>
-      ${q.notes?("หมายเหตุ: "+escapeHtml(q.notes)+"<br>"):""}
-      ผู้ขอ: ${escapeHtml(q.requested_by_name||"—")}
-    </div>
-    <div class="pending-actions">
-      <button class="approve-btn" onclick="approveRequest('${escapeHtml(q.id)}')">✓ อนุมัติ</button>
-      <button class="reject-btn" onclick="rejectRequest('${escapeHtml(q.id)}')">✕ ไม่อนุมัติ</button>
-    </div>`;
-    box.appendChild(d);
-  });
-}
-async function approveRequest(id){
-  if(!currentUser || getCurrentRole()!=="admin") return;
-  const r=await gas("reviewDrugRequest",{id,decision:"approved"});
-  if(!r.ok){ alert("อนุมัติไม่สำเร็จ: "+(r.error||"")); return; }
-  loadPendingRequests();
-  loadApprovedDrugs();
-  alert("อนุมัติสูตรยาเรียบร้อย");
-}
-async function rejectRequest(id){
-  if(!currentUser || getCurrentRole()!=="admin") return;
-  const r=await gas("reviewDrugRequest",{id,decision:"rejected"});
-  if(!r.ok){ alert("ไม่อนุมัติไม่สำเร็จ: "+(r.error||"")); return; }
-  loadPendingRequests();
-}
-
-/* ---------- โหลดยาที่อนุมัติแล้วเข้ารายการคำนวณ ---------- */
-const modeByUnit={"mcg/kg/min":"mcgkgmin","mcg/min":"mcgmin","mg/hr":"mghr","mg/min":"mgmin","mg/kg/hr":"mgkghr"};
-async function loadApprovedDrugs(){
-  const r=await gas("getApprovedDrugs");
-  if(!r.ok) return;
-  (r.drugs||[]).forEach(x=>{
-    const name=String(x.drug_name||"").trim();
-    const mode=modeByUnit[x.dose_unit];
-    const amount=Number(x.drug_amount), total=Number(x.total_ml);
-    // ไม่ทับยาเดิมในระบบ และข้ามรายการที่ข้อมูลไม่ครบ
-    if(!name||!mode||drugs[name]||!(amount>0)||!(total>0)) return;
-    const dMin=Number(x.dose_min), dMax=Number(x.dose_max);
-    drugs[name]={amount,unit:x.drug_unit==="mcg"?"mcg":"mg",total,diluent:x.dilution||"—",stock:Number(x.stock)||0,
-      doseMin:Number.isFinite(dMin)&&x.dose_min!==""?dMin:"—",doseMax:Number.isFinite(dMax)&&x.dose_max!==""?dMax:"—",
-      doseUnit:x.dose_unit,mode};
-    if(x.side_effects){
-      sideEffects[name]={title:name,level:"ข้อมูลจากคำขอที่ Admin อนุมัติ",
-        items:String(x.side_effects).split(/\n+/).filter(Boolean),monitor:"—",source:x.source_reference||"—"};
-    }
-    addDrugUI(name);
-  });
-}
-
-/* ---------- ประวัติการคำนวณ ---------- */
 function localHistoryKey(){return "cvt2_iv_history";}
 function readLocalHistory(){try{return JSON.parse(localStorage.getItem(localHistoryKey())||"[]")}catch(e){return []}}
 function writeLocalHistory(rows){localStorage.setItem(localHistoryKey(),JSON.stringify(rows.slice(0,100)))}
@@ -904,26 +643,14 @@ function makeRecord(){
     created_at:new Date().toISOString()
   };
 }
-async function saveCalculation(){
-  const record=makeRecord();
-  if(!record.drug_name||!record.total_ml){alert("กรุณากรอกข้อมูลการคำนวณให้ครบ");return;}
-  if(currentUser){
-    const r=await gas("saveHistory",{record});
-    if(!r.ok){alert("บันทึกไม่สำเร็จ: "+(r.error||""));return;}
-    await loadHistory();
-    alert("บันทึกประวัติเรียบร้อย");
-  }else{
-    const rows=readLocalHistory();rows.unshift({...record,id:"local-"+Date.now(),local:true});writeLocalHistory(rows);loadHistory();
-    alert("บันทึกไว้ในเครื่องนี้แล้ว\nหากต้องการเก็บบน Cloud ให้เข้าสู่ระบบ");
-  }
+function saveCalculation(){
+  const rows=readLocalHistory();
+  rows.unshift({...makeRecord(),id:"local-"+Date.now(),local:true});
+  writeLocalHistory(rows);
+  loadHistory();
 }
-async function loadHistory(){
-  if(currentUser){
-    const r=await gas("listHistory");
-    historyRows=r.ok?(r.rows||[]):[];
-  }else historyRows=readLocalHistory();
-  renderHistory();
-}
+function loadHistory(){ historyRows=readLocalHistory(); renderHistory(); }
+
 function renderHistory(){
   const q=($("historySearch").value||"").toLowerCase().trim();
   const rows=historyRows.filter(r=>(r.patient_name||"").toLowerCase().includes(q)||(r.drug_name||"").toLowerCase().includes(q));
@@ -1135,7 +862,7 @@ $("drugSelect").addEventListener("change",loadDrug);
 $("diluentText").addEventListener("change",calc);
 $("reverseBtn").addEventListener("click",reverseCalc);
 loadDrug();
-initCloud();
+loadHistory();
 window.addEventListener("afterprint",()=>document.body.classList.remove("print-label-mode"));
 
 function openDrugSuggestion(){
@@ -1152,14 +879,18 @@ async function submitDrugSuggestion(){
   const g=id=>($(id)?$(id).value.trim():"");
   const msg=$("drugSuggestionMsg");
   if(!name){ msg.style.color="#b3261e"; msg.textContent="กรุณากรอกชื่อยา"; return; }
-  if(!getToken()){ msg.style.color="#b3261e"; msg.textContent="กรุณาเข้าสู่ระบบก่อนส่งคำขอ"; return; }
   msg.style.color="#555"; msg.textContent="กำลังส่ง…";
-  const r=await gas("submitDrugRequest",{request:{
-    drug_name:name, drug_unit:g("suggestUnit"), drug_amount:g("suggestAmount"), total_ml:g("suggestTotal"),
-    dilution:g("suggestDilution"), dose_unit:g("suggestDoseUnit"), dose_min:g("suggestDoseMin"), dose_max:g("suggestDoseMax"),
-    source_reference:g("suggestSource"), side_effects:g("suggestSide"), notes:g("suggestDrugDetail")||"เสนอเพิ่มชื่อยา"}});
-  if(r.ok){ msg.style.color="#159b68"; msg.textContent="ส่งข้อเสนอเรียบร้อยแล้ว (รอ Admin อนุมัติ)"; setTimeout(closeDrugSuggestion,1200); }
-  else { msg.style.color="#b3261e"; msg.textContent=r.error||"ไม่สามารถส่งข้อเสนอได้ กรุณาลองใหม่"; }
+  try{
+    const res=await fetch(GAS_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},
+      body:JSON.stringify({action:"submitDrugRequest",request:{
+        drug_name:name, drug_unit:g("suggestUnit"), drug_amount:g("suggestAmount"), total_ml:g("suggestTotal"),
+        dilution:g("suggestDilution"), dose_unit:g("suggestDoseUnit"), dose_min:g("suggestDoseMin"), dose_max:g("suggestDoseMax"),
+        source_reference:g("suggestSource"), side_effects:g("suggestSide"), notes:g("suggestDrugDetail")||"เสนอเพิ่มชื่อยา"}})});
+    const r=await res.json();
+    if(!r.ok) throw new Error(r.error||"error");
+    msg.style.color="#159b68"; msg.textContent="ส่งข้อเสนอเรียบร้อยแล้ว";
+    setTimeout(closeDrugSuggestion,1200);
+  }catch(e){ msg.style.color="#b3261e"; msg.textContent="ไม่สามารถส่งข้อเสนอได้ กรุณาลองใหม่"; }
 }
 
 $("reverseBtn").addEventListener("click",()=>{
